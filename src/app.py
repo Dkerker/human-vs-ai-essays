@@ -36,7 +36,7 @@ models = {
 }
 
 results = []
-for name, model in models.item():
+for name, model in models.items():
     model.fit(X_train, y_train)
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
