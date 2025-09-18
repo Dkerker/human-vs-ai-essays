@@ -48,7 +48,7 @@ results_df = pd.DataFrame(results)
 st.subheader("Model Accuracy Comparison")
 st.dataframe(results_df)
 
-best_model = results_df.loc[results_df['Accuracy'].idmax()]
+best_model = results_df.loc[results_df['Accuracy'].idxmax()]
 st.write(f"**Best model:** {best_model['Model']} "
           f"with accuracy {best_model['Accuracy']: .2%}")
 
