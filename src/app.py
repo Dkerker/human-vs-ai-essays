@@ -70,7 +70,7 @@ if user_text:
     final_model = models[best_model['Model']]
     pred = final_model.predict(X_user)[0]
     label = "AI-Generated" if pred == 1 else "Human-Written"
-    st.success(f"Prediction: **{'label'}**")
+    st.success(f"Prediction: **{'generated'}**")
 
     st.write("Top Influencial Words")
     top_feats = get_top_features(vectorizer, final_model, user_text.lower())
