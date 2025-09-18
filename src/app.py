@@ -21,7 +21,7 @@ def get_top_features(vectorizer, model, text, top_n=5):
     feature_names = np.array(vectorizer.get_feature_names_out())
     coefs = model.coef_[0]
     contributions = vector.toarray()[0] * coefs
-    top_indicies = np.argsotr(np.abs(contributions))[::-1][:top_n]
+    top_indicies = np.argsort(np.abs(contributions))[::-1][:top_n]
     return [(feature_names[i], contributions[i]) for i in top_indicies]
 
 df = load_data()
