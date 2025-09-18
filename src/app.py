@@ -16,6 +16,14 @@ def load_data():
     df['clean'] = df['text'].str.lower()
     return df
 
+def get_top_features(vectorizer, model, text, top_n=5):
+    vector = vectorizer.transform([text])
+    feature_names = np.array(vectorizer.get_feature_names_out())
+    coefs = model.coef_[0]
+    contributions = vector.toarray()[0] * coefs
+    top_indicies = np.argsotr(np.abs(contributions))[::-1][:top_n]
+    return [(feature_names[i], contributions[i]) for i in top_indicies]
+
 df = load_data()
 
 st.title("Human vs AI Essay Classifier")
@@ -27,6 +35,7 @@ X = vectorizer.fit_transform(df['clean'])
 y = df['generated']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
+
 
 # Model training
 models = {
@@ -57,7 +66,15 @@ st.subheader("Try your own text")
 user_text = st.text_area("Paste an essay here:")
 if user_text:
     X_user = vectorizer.transform([user_text.lower()])
-    # Use beset model for prediction
+    # Use best model for prediction
     final_model = models[best_model['Model']]
     pred = final_model.predict(X_user)[0]
-    st.success("Prediction: **AI-Generated**" if pred == 1 else "Prediction: **Human-Written**")
+    label = "AI-Generated" if pred == 1 else "Human-Written"
+    st.success(f"Prediction: **{'label'}**")
+
+    st.write("Top Influencial Words")
+    top_feats = get_top_features(vectorizer, final_model, user_text.lower())
+    exp_df = pd.DataFrame(top_feats, columns=['Word', 'Contribution'])
+    exp_df['Sign'] = exp_df['Contribution'].apply(lambda x: 'AI signal' if x > 0 else 'Human signal')
+    st.dataframe(exp_df[['Word', 'Sign']])
+    st.caption("Positive contributions lean towards AI, negative ones towards Human.")
