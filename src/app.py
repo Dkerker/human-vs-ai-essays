@@ -1,80 +1,82 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import LinearSVC
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report, accuracy_score
+import plotly.express as px
 
-# Load and preprocess
+# ---------------- Load data ----------------
 @st.cache_data
-def load_data():
-    df = pd.read_csv("data/balanced_ai_human_prompts.csv")
+def load_data(path="data/AI_Human.csv", nrows=100000):
+    df = pd.read_csv(path, nrows=nrows)
     df.dropna(subset=['text'], inplace=True)
-    df['clean'] = df['text'].str.lower()
+    df['clean'] = df['text'].astype(str).str.lower()
     return df
-
-def get_top_features(vectorizer, model, text, top_n=5):
-    vector = vectorizer.transform([text])
-    feature_names = np.array(vectorizer.get_feature_names_out())
-    coefs = model.coef_[0]
-    contributions = vector.toarray()[0] * coefs
-    top_indicies = np.argsort(np.abs(contributions))[::-1][:top_n]
-    return [(feature_names[i], contributions[i]) for i in top_indicies]
 
 df = load_data()
 
-st.title("Human vs AI Essay Classifier")
-st.write("Exploring different ML models on a Kaggle dataset.")
+st.subheader("Sanity check: shuffled labels")
+if st.checkbox("Run shuffled-label sanity check"):
+    # Split normally
+    X_train, X_test, y_train, y_test = train_test_split(
+        df['clean'], df['generated'], train_size=10000, test_size=5000, random_state=42
+    )
 
-# Feature extraction
-vectorizer = TfidfVectorizer(stop_words= 'english', max_features=5000)
-X = vectorizer.fit_transform(df['clean'])
-y = df['generated']
+    # Shuffle training labels
+    y_train_shuffled = np.random.permutation(y_train)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
+    # Vectorize text
+    vectorizer_sanity = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
+    X_train_tfidf_sanity = vectorizer_sanity.fit_transform(X_train)
+    X_test_tfidf_sanity = vectorizer_sanity.transform(X_test)
+
+    # Train model
+    model_sanity = LogisticRegression(max_iter=1000)
+    model_sanity.fit(X_train_tfidf_sanity, y_train_shuffled)
+
+    # Predict on test set
+    y_pred_sanity = model_sanity.predict(X_test_tfidf_sanity)
+    accuracy_sanity = accuracy_score(y_test, y_pred_sanity)
+
+    st.write(f"Accuracy with shuffled labels: {accuracy_sanity:.4f}")
 
 
-# Model training
-models = {
-    "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Naive Bayes": MultinomialNB(),
-    "Linear SVM": LinearSVC()
-}
+X_train, X_test, y_train, y_test = train_test_split(
+    df['clean'], df['generated'],
+    train_size=10000,
+    test_size=5000,
+    stratify=df['generated'],
+    random_state=42
+)
 
-results = []
-for name, model in models.items():
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
-    acc = accuracy_score(y_test, preds)
-    results.append({"Model": name, "Accuracy": acc})
+st.write(f"Training on {len(X_train)} essays")
 
-results_df = pd.DataFrame(results)
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_test_tfidf = vectorizer.transform(X_test)
 
-# Display
-st.subheader("Model Accuracy Comparison")
-st.dataframe(results_df)
 
-best_model = results_df.loc[results_df['Accuracy'].idxmax()]
-st.write(f"**Best model:** {best_model['Model']} "
-          f"with accuracy {best_model['Accuracy']: .2%}")
+model = LogisticRegression(max_iter=1000, n_jobs=-1)
+model.fit(X_train_tfidf, y_train)
 
-# Custom prediction
-st.subheader("Try your own text")
-user_text = st.text_area("Paste an essay here:")
-if user_text:
-    X_user = vectorizer.transform([user_text.lower()])
-    # Use best model for prediction
-    final_model = models[best_model['Model']]
-    pred = final_model.predict(X_user)[0]
-    label = "AI-Generated" if pred == 1 else "Human-Written"
-    st.success(f"Prediction: **{label}**")
 
-    st.write("Top Influencial Words")
-    top_feats = get_top_features(vectorizer, final_model, user_text.lower())
-    exp_df = pd.DataFrame(top_feats, columns=['Word', 'Contribution'])
-    exp_df['Sign'] = exp_df['Contribution'].apply(lambda x: 'AI signal' if x > 0 else 'Human signal')
-    st.dataframe(exp_df[['Word', 'Sign']])
-    st.caption("Positive contributions lean towards AI, negative ones towards Human.")
+
+y_pred = model.predict(X_test_tfidf)
+accuracy = accuracy_score(y_test, y_pred)
+st.write(f"Accuracy: {accuracy:.4f}")
+st.subheader("Classification report")
+st.text(classification_report(y_test, y_pred))
+
+st.subheader("Predict a new essay")
+user_input = st.text_area("Enter essay text here:")
+if st.button("Predict"):
+    if user_input.strip():
+        clean_input = user_input.strip().lower()
+        X_new_tfidf = vectorizer.transform([clean_input])
+        prediction = model.predict(X_new_tfidf)[0]
+        readable_prediction = {0.0: "Human", 1.0: "AI"}[prediction]
+        st.write(f"{readable_prediction}")
+    else:
+        st.write("Please enter some text to predict")

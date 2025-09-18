@@ -1,6 +1,6 @@
 import pandas as pd
 
-def load_data(path = "data/balanced_ai_human_prompts.csv"):
+def load_data(path = "data/AI_Human.csv"):
     df = pd.read_csv(path)
     return df
 
