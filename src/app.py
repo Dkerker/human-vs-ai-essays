@@ -24,7 +24,7 @@ st.write("Exploring different ML models on a Kaggle dataset.")
 # Feature extraction
 vectorizer = TfidfVectorizer(stop_words= 'english', max_features=5000)
 X = vectorizer.fit_transform(df['clean'])
-y = df['label']
+y = df['generated']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
 
